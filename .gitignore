@@ -1,0 +1,7 @@
+.DS_Store
+._*
+Icon?
+Thumbs.db
+*.idlk
+*.indd
+.claude/
