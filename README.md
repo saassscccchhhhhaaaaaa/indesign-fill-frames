@@ -26,6 +26,15 @@ The content is mapped onto the combined area of all target frames:
 - The target frames stay as they are (stroke, object style, shape, even non-rectangular frames).
 - Everything can be undone with a single **Undo**.
 
+## Removing the content again
+
+Select **only the filled frames** and run the script again. A dialog lets you choose:
+
+- **Empty the frames**: the content is removed from all frames.
+- **Empty the frames and merge the content into one frame** (default): one frame spanning
+  the whole area is created with the complete content in its exact position, so you can
+  distribute it again later.
+
 ## What can be distributed?
 
 Anything that sits inside a frame: images (JPG, PSD, TIFF …), EPS/PDF/AI graphics, and

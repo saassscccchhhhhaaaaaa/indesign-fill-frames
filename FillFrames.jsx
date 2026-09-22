@@ -9,6 +9,9 @@
 //   frames: scaled proportionally to fill it and centered. Rotation and effects are preserved.
 //   Afterwards you are asked whether to delete the original frame.
 //   Note: the script uses the clipboard.
+//
+//   To remove the content again, select only the filled frames and run the script:
+//   choose to just empty them, or to merge the content back into one frame spanning all of them.
 
 #target indesign
 
@@ -34,8 +37,15 @@ function main() {
     for (var i = 0; i < frames.length; i++) {
         (frames[i].pageItems.length > 0 ? sources : targets).push(frames[i]);
     }
+    // Only filled frames selected: remove mode
+    if (sources.length > 1 && targets.length === 0) {
+        removeContent(sources);
+        return;
+    }
     if (sources.length !== 1) {
-        alert("Exactly ONE frame with content (image, graphic or group) must be selected (found: " + sources.length + ").");
+        alert("Select ONE frame with content plus the empty target frames to fill them,\n" +
+              "or only filled frames to remove their content (found: " + sources.length + " filled, " +
+              targets.length + " empty).");
         return;
     }
     if (targets.length === 0) {
@@ -89,6 +99,44 @@ function main() {
     if (confirm(targets.length + " frames filled.\n\nDelete the original frame?")) {
         src.remove();
     }
+}
+
+// Empty the frames; optionally merge the content back into one frame spanning all of them.
+// The mode can be preset via app.scriptArgs "FillFramesRemoveMode" ("empty" or "merge") to skip the dialog.
+function removeContent(frames) {
+    var mode = app.scriptArgs.isDefined("FillFramesRemoveMode") ? app.scriptArgs.getValue("FillFramesRemoveMode") : askRemoveMode(frames.length);
+    if (!mode) return;
+
+    if (mode === "merge") {
+        var b = frames[0].geometricBounds.slice();
+        for (var i = 1; i < frames.length; i++) {
+            var g = frames[i].geometricBounds;
+            b = [Math.min(b[0], g[0]), Math.min(b[1], g[1]), Math.max(b[2], g[2]), Math.max(b[3], g[3])];
+        }
+        var merged = frames[0].duplicate();
+        try { merged.frameFittingOptions.autoFit = false; } catch (e) {}
+        merged.geometricBounds = b; // resizing the frame does not move or scale its content
+    }
+
+    for (var j = 0; j < frames.length; j++) {
+        while (frames[j].pageItems.length) frames[j].pageItems[0].remove();
+    }
+    app.select(mode === "merge" ? merged : NothingEnum.NOTHING);
+}
+
+function askRemoveMode(count) {
+    var w = new Window("dialog", "Fill Frames");
+    w.alignChildren = "left";
+    w.add("statictext", undefined, "Remove the content from " + count + " frames:");
+    var rEmpty = w.add("radiobutton", undefined, "Empty the frames");
+    var rMerge = w.add("radiobutton", undefined, "Empty the frames and merge the content into one frame");
+    rMerge.value = true;
+    var btns = w.add("group");
+    btns.alignment = "right";
+    btns.add("button", undefined, "Cancel", { name: "cancel" });
+    btns.add("button", undefined, "OK", { name: "ok" });
+    if (w.show() !== 1) return null;
+    return rMerge.value ? "merge" : "empty";
 }
 
 // Scale/rotation/shear part of a matrix, without translation
