@@ -35,7 +35,7 @@ function main() {
 
     var sources = [], targets = [];
     for (var i = 0; i < frames.length; i++) {
-        (frames[i].pageItems.length > 0 ? sources : targets).push(frames[i]);
+        (hasContent(frames[i]) ? sources : targets).push(frames[i]);
     }
     // Only filled frames selected: remove mode
     if (sources.length > 1 && targets.length === 0) {
@@ -54,15 +54,17 @@ function main() {
     }
 
     var src = sources[0];
-    var srcContent = src.pageItems[0].getElements()[0]; // image, graphic or group inside the frame
+    // image, graphic or group inside the frame — or the text frame itself
+    var srcContent = src.pageItems.length ? src.pageItems[0].getElements()[0] : src;
 
     var PB = CoordinateSpaces.PASTEBOARD_COORDINATES;
     var srcMatrix = linearPart(srcContent.transformValuesOf(PB)[0]);
 
-    // Map the source frame's area onto the combined area of the targets (fill proportionally, centered)
+    // Map the source frame's area onto the combined area of the targets (centered)
     var sb = boundsOf([src]), tb = boundsOf(targets);
     var sw = sb[2] - sb[0], sh = sb[3] - sb[1], tw = tb[2] - tb[0], th = tb[3] - tb[1];
-    var scale = Math.max(tw / sw, th / sh);
+    var scale = scaleFactor(sw, sh, tw, th);
+    if (scale === null) return;
     var contentCorner = innerTopLeft(srcContent);
     var targetCorner = [
         tb[0] + (tw - sw * scale) / 2 + (contentCorner[0] - sb[0]) * scale,
@@ -99,6 +101,40 @@ function main() {
     if (confirm(targets.length + " frames filled.\n\nDelete the original frame?")) {
         src.remove();
     }
+}
+
+// A frame counts as a source when something is placed in it, or when it is a text frame holding text
+function hasContent(frame) {
+    if (frame.pageItems.length > 0) return true;
+    return (frame instanceof TextFrame) && frame.contents !== "";
+}
+
+// How much to scale the content when the target area differs in size from the source frame.
+// Same size: no scaling and no dialog. Otherwise ask; can be preset via app.scriptArgs
+// "FillFramesScaleMode" ("original", "fit" or "fill"). Returns null when cancelled.
+function scaleFactor(sw, sh, tw, th) {
+    if (Math.abs(tw - sw) < 0.01 && Math.abs(th - sh) < 0.01) return 1;
+    var mode = app.scriptArgs.isDefined("FillFramesScaleMode") ? app.scriptArgs.getValue("FillFramesScaleMode") : askScaleMode();
+    if (!mode) return null;
+    if (mode === "fit") return Math.min(tw / sw, th / sh);
+    if (mode === "fill") return Math.max(tw / sw, th / sh);
+    return 1;
+}
+
+function askScaleMode() {
+    var w = new Window("dialog", "Fill Frames");
+    w.alignChildren = "left";
+    w.add("statictext", undefined, "The target frames cover a different area than the source frame.");
+    var rOrig = w.add("radiobutton", undefined, "Keep the original size (centered)");
+    var rFit = w.add("radiobutton", undefined, "Fit: scale until everything is visible");
+    var rFill = w.add("radiobutton", undefined, "Fill: scale until the area is covered (crops)");
+    rOrig.value = true;
+    var btns = w.add("group");
+    btns.alignment = "right";
+    btns.add("button", undefined, "Cancel", { name: "cancel" });
+    btns.add("button", undefined, "OK", { name: "ok" });
+    if (w.show() !== 1) return null;
+    return rFit.value ? "fit" : (rFill.value ? "fill" : "original");
 }
 
 // Empty the frames; optionally merge the content back into one frame spanning all of them.
@@ -169,13 +205,16 @@ function innerTopLeft(item) {
     )[0];
 }
 
-// Collect frames from the selection; groups are resolved
-function collectFrames(items, out) {
+// Collect frames from the selection; groups are resolved.
+// Text frames only count when selected directly, so that text inside a selected group is ignored.
+function collectFrames(items, out, nested) {
     for (var i = 0; i < items.length; i++) {
         var it = items[i];
         if (it instanceof Group) {
-            collectFrames(it.pageItems.everyItem().getElements(), out);
+            collectFrames(it.pageItems.everyItem().getElements(), out, true);
         } else if (it instanceof Rectangle || it instanceof Oval || it instanceof Polygon) {
+            out.push(it);
+        } else if (it instanceof TextFrame && !nested) {
             out.push(it);
         }
     }

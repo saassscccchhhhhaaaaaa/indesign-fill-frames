@@ -21,8 +21,10 @@ Doing this by hand means placing the image 15 times and lining it up in every fr
 The content is mapped onto the combined area of all target frames:
 
 - The source frame can sit **anywhere**: on top of the strips, next to them, or on the pasteboard.
-- If the target area has a different size, the content is **scaled proportionally to fill it and centered**.
-- Rotation, scaling and effects are kept.
+- If the target frames cover an area of a different size, a dialog asks what to do: keep the
+  original size (default), fit the content so everything stays visible, or fill the area
+  (which crops the content). With an area of the same size nothing is scaled and no dialog appears.
+- The content is always centered on the target area. Rotation, scaling and effects are kept.
 - The target frames stay as they are (stroke, object style, shape, even non-rectangular frames).
 - Everything can be undone with a single **Undo**.
 
@@ -39,11 +41,14 @@ Select **only the filled frames** and run the script again. A dialog lets you ch
 
 Anything that sits inside a frame: images (JPG, PSD, TIFF …), EPS/PDF/AI graphics, and
 **groups** (for example a graphic together with a text frame that was pasted into a frame).
+A **text frame** can be used directly as the source, there is no need to paste it into a
+frame first.
 
 ## Notes
 
 - Exactly **one** frame with content and at least one **empty** frame must be selected.
-  Text frames in the selection are ignored, and selected groups of frames are resolved.
+  Selected groups of frames are resolved; text frames inside such a group are ignored,
+  so only a text frame selected on its own counts as the source.
 - The script uses the **clipboard** (copy + Paste Into), so the clipboard's previous
   content is replaced.
 
